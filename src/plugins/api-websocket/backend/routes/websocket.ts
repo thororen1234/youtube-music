@@ -37,9 +37,10 @@ function createPlayerState(
   });
 }
 
-export const register = async (
-  { window, getConfig }: BackendContext<APIWebsocketConfig>,
-) => {
+export const register = async ({
+  window,
+  getConfig,
+}: BackendContext<APIWebsocketConfig>) => {
   const config = await getConfig();
   const sockets = new Set<WebSocket>();
   volume = config.volume;
@@ -51,20 +52,38 @@ export const register = async (
   ipcMain.on('ytmd:volume-changed', (_, newVolume) => {
     volume = newVolume;
     sockets.forEach((socket) =>
-      socket.send(createPlayerState(lastSongInfo, volume, repeat)),
+      socket.send(JSON.stringify({ type: 'PLAYER_STATE', volume: volume })),
     );
   });
 
   ipcMain.on('ytmd:repeat-changed', (_, mode) => {
     repeat = mode;
     sockets.forEach((socket) =>
-      socket.send(createPlayerState(lastSongInfo, volume, repeat)),
+      socket.send(JSON.stringify({ type: 'PLAYER_STATE', repeat: repeat })),
     );
   });
 
   registerCallback((songInfo) => {
     for (const socket of sockets) {
-      socket.send(createPlayerState(songInfo, volume, repeat));
+      const playerState = {
+        type: 'PLAYER_STATE',
+      };
+
+      if (lastSongInfo?.videoId !== songInfo.videoId) {
+        Object.assign(playerState, { song: songInfo });
+      }
+
+      if (lastSongInfo?.isPaused !== songInfo.isPaused) {
+        Object.assign(playerState, {
+          isPlaying: songInfo ? !songInfo.isPaused : false,
+        });
+      }
+
+      if (lastSongInfo?.elapsedSeconds !== songInfo.elapsedSeconds) {
+        Object.assign(playerState, { position: songInfo?.elapsedSeconds ?? 0 });
+      }
+
+      socket.send(JSON.stringify(playerState));
     }
 
     lastSongInfo = { ...songInfo };
@@ -74,8 +93,6 @@ export const register = async (
     host: config.hostname,
     port: config.port,
   });
-
-  console.log("Websocket open")
 
   type Message =
     | {
