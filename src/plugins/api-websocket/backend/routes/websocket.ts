@@ -49,6 +49,19 @@ export const register = async ({
 
   const controller = getSongControls(window);
 
+  function setLoopStatus(status: RepeatMode) {
+      const switches = [
+        'NONE','ALL','ONE'
+      ] as RepeatMode[]
+
+      const currentIndex = switches.indexOf(repeat)
+      const targetIndex = switches.indexOf(status)
+
+      const delta = (targetIndex-currentIndex+3)%3
+      controller.switchRepeat(delta);
+  }
+  
+
   ipcMain.on('ytmd:volume-changed', (_, newVolume) => {
     volume = newVolume;
     sockets.forEach((socket) =>
