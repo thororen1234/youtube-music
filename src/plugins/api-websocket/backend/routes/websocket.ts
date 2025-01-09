@@ -11,15 +11,12 @@ let websocket: WebSocketServer | null = null;
 let volume: number = 0;
 let repeat: RepeatMode = 'NONE' as RepeatMode;
 
-const nextRepeat = (repeat: RepeatMode) => {
-  switch (repeat) {
-    case 'NONE':
-      return 'ALL' as const;
-    case 'ALL':
-      return 'ONE' as const;
-    case 'ONE':
-      return 'NONE' as const;
-  }
+type PlayerState = {
+  song: SongInfo;
+  isPlaying: boolean;
+  position: number;
+  volume: number;
+  repeat: RepeatMode;
 };
 
 function createPlayerState(
@@ -43,6 +40,12 @@ export const register = async ({
 }: BackendContext<APIWebsocketConfig>) => {
   const config = await getConfig();
   const sockets = new Set<WebSocket>();
+  function send(state: Partial<PlayerState>) {
+    sockets.forEach((socket) =>
+      socket.send(JSON.stringify({ type: 'PLAYER_STATE', ...state })),
+    );
+  }
+
   volume = config.volume;
 
   let lastSongInfo: SongInfo | null = null;
