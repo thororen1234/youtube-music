@@ -106,8 +106,9 @@ export const register = async ({
   type Message =
     | {
         type: 'ACTION';
-        action: 'play' | 'pause' | 'next' | 'previous' | 'shuffle' | 'repeat';
+        action: 'play' | 'pause' | 'next' | 'previous' | 'shuffle';
       }
+    | { type: 'ACTION'; action: 'repeat'; data: RepeatMode }
     | { type: 'ACTION'; action: 'seek'; data: number }
     | { type: 'ACTION'; action: 'getVolume' }
     | { type: 'ACTION'; action: 'setVolume'; data: number };
