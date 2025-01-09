@@ -58,9 +58,11 @@ export const register = async ({
 
   ipcMain.on('ytmd:repeat-changed', (_, mode) => {
     repeat = mode;
-    sockets.forEach((socket) =>
-      socket.send(JSON.stringify({ type: 'PLAYER_STATE', repeat: repeat })),
-    );
+    send({ repeat });
+  });
+
+  ipcMain.on('ytmd:seeked', (_, t: number) => {
+    send({ position: t });
   });
 
   registerCallback((songInfo) => {

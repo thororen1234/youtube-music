@@ -2,8 +2,6 @@ import { createBackend } from '@/utils';
 import { APIWebsocketConfig } from '../config';
 import { registerWebsocket, unregisterWebsocket } from './routes';
 
-import {} from 'hono/bun';
-
 type BackendType = {
   oldConfig?: APIWebsocketConfig;
 };
@@ -11,6 +9,7 @@ type BackendType = {
 export const backend = createBackend<BackendType, APIWebsocketConfig>({
   async start(ctx) {
     ctx.ipc.on('ytmd:player-api-loaded', () => {
+      ctx.ipc.send('ytmd:setup-seeked-listener', );
       ctx.ipc.send('ytmd:setup-time-changed-listener');
       ctx.ipc.send('ytmd:setup-repeat-changed-listener');
       ctx.ipc.send("ytmd:setup-volume-changed-listener")
