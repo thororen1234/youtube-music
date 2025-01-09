@@ -67,12 +67,10 @@ export const register = async ({
 
   ipcMain.on('ytmd:volume-changed', (_, newVolume) => {
     volume = newVolume;
-    sockets.forEach((socket) =>
-      socket.send(JSON.stringify({ type: 'PLAYER_STATE', volume: volume })),
-    );
+    send({ volume });
   });
 
-  ipcMain.on('ytmd:repeat-changed', (_, mode) => {
+  ipcMain.on('ytmd:repeat-changed', (_, mode: RepeatMode) => {
     repeat = mode;
     send({ repeat });
   });
@@ -82,26 +80,19 @@ export const register = async ({
   });
 
   registerCallback((songInfo) => {
-    for (const socket of sockets) {
-      const playerState = {
-        type: 'PLAYER_STATE',
-      };
-
       if (lastSongInfo?.videoId !== songInfo.videoId) {
-        Object.assign(playerState, { song: songInfo });
+      send({ song: songInfo, position: 0 });
       }
 
       if (lastSongInfo?.isPaused !== songInfo.isPaused) {
-        Object.assign(playerState, {
-          isPlaying: songInfo ? !songInfo.isPaused : false,
-        });
-      }
+      send({
+        isPlaying: !(songInfo?.isPaused ?? true),
+        position: songInfo.elapsedSeconds,
+      });
+    }
 
-      if (lastSongInfo?.elapsedSeconds !== songInfo.elapsedSeconds) {
-        Object.assign(playerState, { position: songInfo?.elapsedSeconds ?? 0 });
-      }
-
-      socket.send(JSON.stringify(playerState));
+    if ((songInfo.elapsedSeconds ?? 0) % 5 == 0) {
+      send({ position: songInfo.elapsedSeconds });
     }
 
     lastSongInfo = { ...songInfo };
