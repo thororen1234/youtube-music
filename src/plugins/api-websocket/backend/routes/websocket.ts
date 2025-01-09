@@ -80,11 +80,11 @@ export const register = async ({
   });
 
   registerCallback((songInfo) => {
-      if (lastSongInfo?.videoId !== songInfo.videoId) {
+    if (lastSongInfo?.videoId !== songInfo.videoId) {
       send({ song: songInfo, position: 0 });
-      }
+    }
 
-      if (lastSongInfo?.isPaused !== songInfo.isPaused) {
+    if (lastSongInfo?.isPaused !== songInfo.isPaused) {
       send({
         isPlaying: !(songInfo?.isPaused ?? true),
         position: songInfo.elapsedSeconds,
