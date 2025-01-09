@@ -138,8 +138,7 @@ export const register = async ({
               controller.shuffle();
               break;
             case 'repeat':
-              controller.switchRepeat();
-              repeat = nextRepeat(repeat);
+              setLoopStatus(message.data)
               break;
             case 'seek':
               if (message.data > 0) {
