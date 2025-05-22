@@ -9,11 +9,13 @@ import { RepeatMode } from '@/types/datahost-get-state';
 let websocket: WebSocketServer | null = null;
 
 let volume: number = 0;
+let muted = false;
 let repeat: RepeatMode = 'NONE' as RepeatMode;
 
 type PlayerState = {
   song: SongInfo;
   isPlaying: boolean;
+  muted: boolean;
   position: number;
   volume: number;
   repeat: RepeatMode;
@@ -23,11 +25,13 @@ function createPlayerState(
   songInfo: SongInfo | null,
   volume: number,
   repeat: RepeatMode,
+  muted: boolean,
 ) {
   return JSON.stringify({
     type: 'PLAYER_STATE',
     song: songInfo,
     isPlaying: songInfo ? !songInfo.isPaused : false,
+    muted: muted ?? false,
     position: songInfo?.elapsedSeconds ?? 0,
     volume,
     repeat,
@@ -41,6 +45,7 @@ export const register = async ({
   const config = await getConfig();
   const sockets = new Set<WebSocket>();
   function send(state: Partial<PlayerState>) {
+    console.log('Sending state:', state);
     sockets.forEach((socket) =>
       socket.send(JSON.stringify({ type: 'PLAYER_STATE', ...state })),
     );
@@ -79,6 +84,11 @@ export const register = async ({
     send({ position: t });
   });
 
+  ipcMain.on("api-websocket:muted-changed-to", (_, isMuted: boolean) => {
+    muted = isMuted;
+    send({muted: isMuted})
+  })
+
   registerCallback((songInfo) => {
     if (lastSongInfo?.videoId !== songInfo.videoId) {
       send({ song: songInfo, position: 0 });
@@ -106,7 +116,7 @@ export const register = async ({
   type Message =
     | {
         type: 'ACTION';
-        action: 'play' | 'pause' | 'next' | 'previous' | 'shuffle';
+        action: 'play' | 'pause' | 'next' | 'previous' | 'shuffle' | 'mute';
       }
     | { type: 'ACTION'; action: 'repeat'; data: RepeatMode }
     | { type: 'ACTION'; action: 'seek'; data: number }
@@ -114,20 +124,24 @@ export const register = async ({
     | { type: 'ACTION'; action: 'setVolume'; data: number };
 
   websocket.on('connection', (ws: WebSocket) => {
-    ws.send(createPlayerState(lastSongInfo, volume, repeat));
+    ws.send(createPlayerState(lastSongInfo, volume, repeat, muted));
     sockets.add(ws);
 
-    ws.on('message', (data) => {
+    ws.on('message', (data: string) => {
       const message = JSON.parse(data.toString()) as Message;
+
+      console.log('Received message:', message);
 
       switch (message.type) {
         case 'ACTION':
           switch (message.action) {
             case 'play':
-              controller.play();
+              window.webContents.send("api-websocket:play")
+              // controller.play();
               break;
             case 'pause':
-              controller.pause();
+              // controller.pause();
+              window.webContents.send("api-websocket:pause")
               break;
             case 'next':
               controller.next();
@@ -137,6 +151,9 @@ export const register = async ({
               break;
             case 'shuffle':
               controller.shuffle();
+              break;
+            case 'mute':
+              controller.muteUnmute();
               break;
             case 'repeat':
               setLoopStatus(message.data)
@@ -154,7 +171,7 @@ export const register = async ({
           }
           break;
       }
-      ws.send(createPlayerState(lastSongInfo, volume, repeat));
+      ws.send(createPlayerState(lastSongInfo, volume, repeat, muted));
     });
 
     ws.on('close', () => {

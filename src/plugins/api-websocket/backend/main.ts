@@ -13,6 +13,9 @@ export const backend = createBackend<BackendType, APIWebsocketConfig>({
       ctx.ipc.send('ytmd:setup-time-changed-listener');
       ctx.ipc.send('ytmd:setup-repeat-changed-listener');
       ctx.ipc.send("ytmd:setup-volume-changed-listener")
+      ctx.window.webContents.on("ytmd:toggle-mute", ()=> {
+        ctx.ipc.send("api-websocket:muted-changed")
+      })
       registerWebsocket(ctx);
     });
   },
