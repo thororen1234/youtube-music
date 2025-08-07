@@ -88,6 +88,7 @@ export const register = async ({
 
     const delta = (targetIndex - currentIndex + 3) % 3;
     controller.switchRepeat(delta);
+    repeat = status;
     sendFullState({ repeat: status });
   }
 
