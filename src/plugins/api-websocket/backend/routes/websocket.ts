@@ -1,10 +1,14 @@
 import WebSocket, { WebSocketServer } from 'ws';
+
+import { ipcMain } from 'electron';
+
 import { BackendContext } from '@/types/contexts';
-import { APIWebsocketConfig } from '../../config';
+
 import registerCallback, { SongInfo } from '@/providers/song-info';
 import getSongControls from '@/providers/song-controls';
-import { ipcMain } from 'electron';
 import { RepeatMode } from '@/types/datahost-get-state';
+
+import { APIWebsocketConfig } from '../../config';
 
 let websocket: WebSocketServer | null = null;
 
@@ -58,17 +62,14 @@ export const register = async ({
   const controller = getSongControls(window);
 
   function setLoopStatus(status: RepeatMode) {
-      const switches = [
-        'NONE','ALL','ONE'
-      ] as RepeatMode[]
+    const switches = ['NONE', 'ALL', 'ONE'] as RepeatMode[];
 
-      const currentIndex = switches.indexOf(repeat)
-      const targetIndex = switches.indexOf(status)
+    const currentIndex = switches.indexOf(repeat);
+    const targetIndex = switches.indexOf(status);
 
-      const delta = (targetIndex-currentIndex+3)%3
-      controller.switchRepeat(delta);
+    const delta = (targetIndex - currentIndex + 3) % 3;
+    controller.switchRepeat(delta);
   }
-  
 
   ipcMain.on('ytmd:volume-changed', (_, newVolume) => {
     volume = newVolume;
@@ -84,10 +85,10 @@ export const register = async ({
     send({ position: t });
   });
 
-  ipcMain.on("api-websocket:muted-changed-to", (_, isMuted: boolean) => {
+  ipcMain.on('api-websocket:muted-changed-to', (_, isMuted: boolean) => {
     muted = isMuted;
-    send({muted: isMuted})
-  })
+    send({ muted: isMuted });
+  });
 
   registerCallback((songInfo) => {
     if (lastSongInfo?.videoId !== songInfo.videoId) {
@@ -115,9 +116,9 @@ export const register = async ({
 
   type Message =
     | {
-        type: 'ACTION';
-        action: 'play' | 'pause' | 'next' | 'previous' | 'shuffle' | 'mute';
-      }
+      type: 'ACTION';
+      action: 'play' | 'pause' | 'next' | 'previous' | 'shuffle' | 'mute';
+    }
     | { type: 'ACTION'; action: 'repeat'; data: RepeatMode }
     | { type: 'ACTION'; action: 'seek'; data: number }
     | { type: 'ACTION'; action: 'getVolume' }
@@ -136,12 +137,12 @@ export const register = async ({
         case 'ACTION':
           switch (message.action) {
             case 'play':
-              window.webContents.send("api-websocket:play")
+              window.webContents.send('api-websocket:play');
               // controller.play();
               break;
             case 'pause':
               // controller.pause();
-              window.webContents.send("api-websocket:pause")
+              window.webContents.send('api-websocket:pause');
               break;
             case 'next':
               controller.next();
@@ -156,7 +157,7 @@ export const register = async ({
               controller.muteUnmute();
               break;
             case 'repeat':
-              setLoopStatus(message.data)
+              setLoopStatus(message.data);
               break;
             case 'seek':
               if (message.data > 0) {

@@ -1,7 +1,8 @@
+import prompt from 'custom-electron-prompt';
+
 import { MenuContext } from '@/types/contexts';
 import { APIWebsocketConfig, defaultAPIWebsocketConfig } from './config';
 import { MenuTemplate } from '@/menu';
-import prompt from 'custom-electron-prompt';
 import promptOptions from '@/providers/prompt-options';
 
 export const onMenu = async ({

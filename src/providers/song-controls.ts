@@ -134,7 +134,7 @@ export default (win: BrowserWindow) => {
     },
     clearQueue: () => win.webContents.send('ytmd:clear-queue'),
     openVideo: (videoid: string) => {
-      win.loadURL(`https://music.youtube.com/watch?v=${videoid}`)
+      win.loadURL(`https://music.youtube.com/watch?v=${videoid}`);
     },
     search: (query: string, params?: string, continuation?: string) =>
       new Promise((resolve) => {
