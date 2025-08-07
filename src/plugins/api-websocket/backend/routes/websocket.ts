@@ -15,6 +15,7 @@ let websocket: WebSocketServer | null = null;
 let volume: number = 0;
 let muted = false;
 let repeat: RepeatMode = 'NONE' as RepeatMode;
+let shuffle = false;
 
 type PlayerState = {
   song: SongInfo;
@@ -22,6 +23,7 @@ type PlayerState = {
   muted: boolean;
   position: number;
   volume: number;
+  shuffle: boolean;
   repeat: RepeatMode;
 };
 
@@ -30,6 +32,7 @@ function createPlayerState(
   volume: number,
   repeat: RepeatMode,
   muted: boolean,
+  shuffle: boolean,
 ) {
   return JSON.stringify({
     type: 'PLAYER_STATE',
@@ -39,6 +42,7 @@ function createPlayerState(
     position: songInfo?.elapsedSeconds ?? 0,
     volume,
     repeat,
+    shuffle: shuffle ?? false,
   });
 }
 
@@ -57,6 +61,7 @@ export const register = async ({
       muted,
       position: lastSongInfo?.elapsedSeconds ?? 0,
       volume,
+      shuffle,
       ...overrides,
     };
 
@@ -94,12 +99,17 @@ export const register = async ({
 
   ipcMain.on('ytmd:volume-changed', (_, newVolume: number) => {
     volume = newVolume;
-    sendFullState({ volume });
+    sendFullState({ volume: volume });
   });
 
   ipcMain.on('ytmd:repeat-changed', (_, mode: RepeatMode) => {
     repeat = mode;
-    sendFullState({ repeat });
+    sendFullState({ repeat: mode });
+  });
+
+  ipcMain.on('ytmd:shuffle-changed', (_, shuffleEnabled: boolean) => {
+    shuffle = shuffleEnabled;
+    sendFullState({ shuffle: shuffleEnabled });
   });
 
   ipcMain.on('ytmd:seeked', (_, t: number) => {
@@ -144,7 +154,7 @@ export const register = async ({
     | { type: 'ACTION'; action: 'setVolume'; data: number };
 
   websocket.on('connection', (ws: WebSocket) => {
-    ws.send(createPlayerState(lastSongInfo, volume, repeat, muted));
+    ws.send(createPlayerState(lastSongInfo, volume, repeat, muted, shuffle));
     sockets.add(ws);
 
     ws.on('message', (data: string) => {
@@ -173,6 +183,7 @@ export const register = async ({
               break;
             case 'shuffle':
               controller.shuffle();
+              shuffle = !shuffle;
               sendFullState();
               break;
             case 'mute':
