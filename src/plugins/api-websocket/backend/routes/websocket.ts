@@ -48,11 +48,30 @@ export const register = async ({
 }: BackendContext<APIWebsocketConfig>) => {
   const config = await getConfig();
   const sockets = new Set<WebSocket>();
-  function send(state: Partial<PlayerState>) {
+  function sendFullState(overrides: Partial<PlayerState> = {}) {
+    const state = {
+      type: 'PLAYER_STATE',
+      repeat,
+      song: lastSongInfo ?? undefined,
+      isPlaying: lastSongInfo ? !lastSongInfo.isPaused : false,
+      muted,
+      position: lastSongInfo?.elapsedSeconds ?? 0,
+      volume,
+      ...overrides,
+    };
+
     console.log('Sending state:', state);
-    sockets.forEach((socket) =>
-      socket.send(JSON.stringify({ type: 'PLAYER_STATE', ...state })),
-    );
+
+    sockets.forEach((socket) => socket.send(JSON.stringify(state)));
+  }
+
+  let sendTimeout: NodeJS.Timeout | null = null;
+  function scheduleSendFullState(overrides: Partial<PlayerState> = {}) {
+    if (sendTimeout) clearTimeout(sendTimeout);
+    sendTimeout = setTimeout(() => {
+      sendFullState(overrides);
+      sendTimeout = null;
+    }, 100);
   }
 
   volume = config.volume;
@@ -69,47 +88,46 @@ export const register = async ({
 
     const delta = (targetIndex - currentIndex + 3) % 3;
     controller.switchRepeat(delta);
+    sendFullState({ repeat: status });
   }
 
-  ipcMain.on('ytmd:volume-changed', (_, newVolume) => {
+  ipcMain.on('ytmd:volume-changed', (_, newVolume: number) => {
     volume = newVolume;
-    send({ volume });
+    sendFullState({ volume });
   });
 
   ipcMain.on('ytmd:repeat-changed', (_, mode: RepeatMode) => {
     repeat = mode;
-    send({ repeat });
+    sendFullState({ repeat });
   });
 
   ipcMain.on('ytmd:seeked', (_, t: number) => {
-    send({ position: t });
+    sendFullState({ position: t });
   });
 
   ipcMain.on('api-websocket:muted-changed-to', (_, isMuted: boolean) => {
     muted = isMuted;
-    send({ muted: isMuted });
+    sendFullState({ muted: isMuted });
   });
 
   registerCallback((songInfo) => {
-    if (lastSongInfo?.videoId !== songInfo.videoId) {
-      send({ song: songInfo, position: 0 });
-    }
+    const changed =
+      !lastSongInfo ||
+      lastSongInfo.videoId !== songInfo.videoId ||
+      lastSongInfo.isPaused !== songInfo.isPaused ||
+      lastSongInfo.elapsedSeconds !== songInfo.elapsedSeconds;
 
-    if (lastSongInfo?.isPaused !== songInfo.isPaused) {
-      send({
-        isPlaying: !(songInfo?.isPaused ?? true),
+    if (changed) {
+      scheduleSendFullState({
+        song: songInfo,
         position: songInfo.elapsedSeconds,
       });
-    }
-
-    if ((songInfo.elapsedSeconds ?? 0) % 5 == 0) {
-      send({ position: songInfo.elapsedSeconds });
     }
 
     lastSongInfo = { ...songInfo };
   });
 
-  websocket = new WebSocket.Server({
+  websocket = new WebSocketServer({
     host: config.hostname,
     port: config.port,
   });
@@ -137,42 +155,43 @@ export const register = async ({
         case 'ACTION':
           switch (message.action) {
             case 'play':
-              window.webContents.send('api-websocket:play');
-              // controller.play();
+              controller.play();
+              sendFullState();
               break;
             case 'pause':
-              // controller.pause();
-              window.webContents.send('api-websocket:pause');
+              controller.pause();
+              sendFullState();
               break;
             case 'next':
               controller.next();
+              sendFullState();
               break;
             case 'previous':
               controller.previous();
+              sendFullState();
               break;
             case 'shuffle':
               controller.shuffle();
+              sendFullState();
               break;
             case 'mute':
               controller.muteUnmute();
+              sendFullState();
               break;
             case 'repeat':
               setLoopStatus(message.data);
               break;
             case 'seek':
-              if (message.data > 0) {
-                controller.goForward(Math.abs(message.data));
-              } else {
-                controller.goBack(Math.abs(message.data));
-              }
+              controller.seekTo(message.data);
+              sendFullState();
               break;
             case 'setVolume':
               controller.setVolume(message.data);
+              sendFullState();
               break;
           }
           break;
       }
-      ws.send(createPlayerState(lastSongInfo, volume, repeat, muted));
     });
 
     ws.on('close', () => {
